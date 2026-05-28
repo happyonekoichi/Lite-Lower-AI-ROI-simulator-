@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>内視鏡AI ROI 簡易シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#F6F4EE;
+    --paper-2:#FFFFFF;
+    --ink:#16302E;
+    --ink-soft:#4A5F5C;
+    --line:#DDD8CC;
+    --teal:#0E7C6B;
+    --teal-deep:#0A5A4E;
+    --teal-wash:#E7F1EE;
+    --amber:#B27420;
+    --amber-wash:#FBF1DF;
+    --rose:#9C4A3C;
+    --shadow:0 1px 2px rgba(22,48,46,.04),0 8px 28px rgba(22,48,46,.07);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(14,124,107,.06), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:"Zen Kaku Gothic New",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:40px 22px 80px;}
+
+  /* ---------- header ---------- */
+  header{position:relative;margin-bottom:30px;}
+  .eyebrow{
+    font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--teal);margin:0 0 10px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--teal);display:inline-block;}
+  h1{
+    font-family:"Shippori Mincho",serif;font-weight:700;
+    font-size:clamp(27px,4.4vw,40px);line-height:1.22;margin:0 0 8px;
+    letter-spacing:.01em;
+  }
+  .sub{color:var(--ink-soft);font-size:14.5px;margin:0;max-width:60ch;}
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--paper-2);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:26px 26px;
+  }
+  .card + .card{margin-top:20px;}
+  .card-title{
+    font-family:"Shippori Mincho",serif;font-weight:600;font-size:17px;
+    margin:0 0 4px;display:flex;align-items:center;gap:9px;
+  }
+  .card-title .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex:none;}
+  .card-note{color:var(--ink-soft);font-size:12.5px;margin:0 0 18px;}
+
+  /* ---------- inputs ---------- */
+  .inputs{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:620px){.inputs{grid-template-columns:1fr;}}
+  .field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px;}
+  .field .hint{font-size:11.5px;color:var(--ink-soft);font-weight:400;}
+  .input-row{display:flex;align-items:stretch;border:1.5px solid var(--line);
+    border-radius:11px;overflow:hidden;background:var(--paper);transition:border-color .18s,box-shadow .18s;}
+  .input-row:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-wash);}
+  .input-row input{
+    flex:1;min-width:0;border:0;background:transparent;outline:none;
+    font-family:"DM Mono",monospace;font-size:22px;color:var(--ink);
+    padding:13px 14px;font-weight:500;
+  }
+  .input-row .unit{display:flex;align-items:center;padding:0 15px;background:#F0EDE4;
+    color:var(--ink-soft);font-size:13px;font-weight:700;border-left:1px solid var(--line);white-space:nowrap;}
+  .range{width:100%;margin-top:12px;accent-color:var(--teal);}
+
+  /* ---------- KPI ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px;}
+  @media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr);}}
+  .kpi{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:16px 16px 15px;position:relative;overflow:hidden;}
+  .kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal);}
+  .kpi.cost::after{background:var(--amber);}
+  .kpi.hero{background:linear-gradient(160deg,var(--teal) 0%,var(--teal-deep) 100%);border-color:var(--teal-deep);}
+  .kpi.hero::after{display:none;}
+  .kpi .k-label{font-size:11.5px;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
+  .kpi.hero .k-label{color:rgba(255,255,255,.82);}
+  .kpi .k-val{font-family:"DM Mono",monospace;font-size:23px;font-weight:500;letter-spacing:-.01em;line-height:1.15;}
+  .kpi.hero .k-val{color:#fff;font-size:25px;}
+  .kpi .k-unit{font-size:12px;color:var(--ink-soft);font-weight:400;margin-left:3px;}
+  .kpi.hero .k-unit{color:rgba(255,255,255,.8);}
+
+  /* ---------- breakdown tables ---------- */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr;}}
+  table.bd{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.bd td{padding:9px 2px;border-bottom:1px dashed var(--line);vertical-align:top;}
+  table.bd td.num{text-align:right;font-family:"DM Mono",monospace;white-space:nowrap;font-weight:500;}
+  table.bd tr.sub td{color:var(--ink-soft);font-size:12px;padding-top:2px;border-bottom:1px dashed var(--line);}
+  table.bd tr.sub td:first-child{padding-left:16px;}
+  table.bd tr.sub td:first-child::before{content:"└ ";color:var(--line);}
+  table.bd tr.total td{border-bottom:none;border-top:2px solid var(--ink);padding-top:12px;font-weight:700;font-size:14.5px;}
+  .pill{display:inline-block;font-size:10.5px;font-family:"DM Mono",monospace;background:var(--amber-wash);
+    color:var(--amber);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;}
+
+  /* ---------- chart ---------- */
+  .chart{width:100%;height:170px;display:block;}
+  .chart .axis{stroke:var(--line);stroke-width:1;}
+  .chart .bar{fill:var(--teal-wash);}
+  .chart .line{fill:none;stroke:var(--teal);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;}
+  .chart .area{fill:url(#g);}
+  .chart text{font-family:"DM Mono",monospace;font-size:9px;fill:var(--ink-soft);}
+
+  /* ---------- assumptions ---------- */
+  .assume{display:grid;grid-template-columns:1fr 1fr;gap:6px 26px;font-size:13px;}
+  @media(max-width:620px){.assume{grid-template-columns:1fr;}}
+  .assume .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .assume .row .v{font-family:"DM Mono",monospace;font-weight:500;white-space:nowrap;}
+  .assume .row.changed{color:var(--teal-deep);}
+  .assume .row.changed .v{color:var(--teal-deep);}
+  .changed-tag{font-size:10px;background:var(--teal-wash);color:var(--teal-deep);border-radius:5px;padding:1px 6px;font-family:"DM Mono",monospace;margin-left:6px;}
+
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;}
+  .btn{appearance:none;border:1.5px solid var(--ink);background:var(--ink);color:#fff;
+    font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700;font-size:13.5px;
+    padding:12px 20px;border-radius:11px;cursor:pointer;transition:transform .12s,opacity .12s;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn.ghost{background:transparent;color:var(--ink);}
+
+  .footnote{font-size:11.5px;color:var(--ink-soft);margin-top:26px;line-height:1.65;}
+  .footnote b{color:var(--ink);}
+  .secure{display:inline-flex;align-items:center;gap:7px;font-family:"DM Mono",monospace;
+    font-size:11px;color:var(--teal-deep);background:var(--teal-wash);border-radius:8px;
+    padding:6px 11px;margin-top:14px;}
+  .secure svg{width:13px;height:13px;}
+
+  @media print{
+    body{background:#fff;}
+    .actions,.range,.secure{display:none!important;}
+    .card{box-shadow:none;break-inside:avoid;}
+    .input-row{border-color:#bbb;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Endoscopy AI · ROI Simulator (Lite)</p>
+    <h1>内視鏡AI 導入 ROI 簡易シミュレーター</h1>
+    <p class="sub">「年間の大腸内視鏡検査数」と「現在のADR」の2項目を入力するだけで、内視鏡AI導入による月次・年次の収益効果と投資対効果（ROI）を試算します。</p>
+  </header>
+
+  <!-- INPUT -->
+  <section class="card">
+    <h2 class="card-title"><span class="dot"></span>① 入力（この2つだけ）</h2>
+    <p class="card-note">数値を入力（またはスライダーを操作）すると、下のサマリーが即時に再計算されます。</p>
+    <div class="inputs">
+      <div class="field">
+        <label>年間 大腸内視鏡検査数<br><span class="hint">1年間に実施する大腸内視鏡（CS）の総件数</span></label>
+        <div class="input-row">
+          <input id="exams" type="number" min="0" step="10" value="840" inputmode="numeric" />
+          <span class="unit">件 / 年</span>
+        </div>
+        <input id="examsRange" class="range" type="range" min="0" max="3000" step="10" value="840" />
+      </div>
+      <div class="field">
+        <label>現在のADR（腺腫発見率）<br><span class="hint">AI導入前の腺腫発見率。AI導入で +3%pt 向上すると仮定</span></label>
+        <div class="input-row">
+          <input id="adr" type="number" min="0" max="100" step="1" value="35" inputmode="numeric" />
+          <span class="unit">%</span>
+        </div>
+        <input id="adrRange" class="range" type="range" min="0" max="80" step="1" value="35" />
+      </div>
+    </div>
+  </section>
+
+  <!-- KPI -->
+  <section class="card">
+    <h2 class="card-title"><span class="dot"></span>② サマリー</h2>
+    <p class="card-note">AI導入による<b>差分（追加分）</b>として算出した月次・年次の効果です。</p>
+    <div class="kpis">
+      <div class="kpi"><div class="k-label">月間 追加収益</div><div class="k-val" id="kRev">—</div></div>
+      <div class="kpi cost"><div class="k-label">月間 コスト合計</div><div class="k-val" id="kCost">—</div></div>
+      <div class="kpi"><div class="k-label">月間 純利益</div><div class="k-val" id="kNet">—</div></div>
+      <div class="kpi hero"><div class="k-label">年間 純利益</div><div class="k-val" id="kNetY">—</div></div>
+    </div>
+    <div class="kpis" style="margin-top:14px;">
+      <div class="kpi"><div class="k-label">年間 ROI</div><div class="k-val" id="kRoi">—</div></div>
+      <div class="kpi"><div class="k-label">投資回収期間</div><div class="k-val" id="kPay">—</div></div>
+      <div class="kpi"><div class="k-label">AI後 ADR</div><div class="k-val" id="kAdr">—</div></div>
+      <div class="kpi"><div class="k-label">月間ポリープ増加</div><div class="k-val" id="kInc">—</div></div>
+    </div>
+  </section>
+
+  <!-- BREAKDOWN -->
+  <section class="card">
+    <h2 class="card-title"><span class="dot"></span>③ 内訳（月間）</h2>
+    <div class="grid2">
+      <div>
+        <p class="card-note" style="font-weight:700;color:var(--ink);">収益内訳</p>
+        <table class="bd">
+          <tr><td>① AI加算収益（ポリペク全件）</td><td class="num" id="r1">—</td></tr>
+          <tr class="sub"><td>AI後ポリープ発見件数 / 月</td><td class="num" id="r1s">—</td></tr>
+          <tr><td>② 追加ポリペクトミー収益</td><td class="num" id="r2">—</td></tr>
+          <tr><td>③ 病理標本作製料＋病理診断料</td><td class="num" id="r3">—</td></tr>
+          <tr class="sub"><td>ポリープ発見 増加件数 / 月</td><td class="num" id="r3s">—</td></tr>
+          <tr class="total"><td>合計収益</td><td class="num" id="rT">—</td></tr>
+        </table>
+      </div>
+      <div>
+        <p class="card-note" style="font-weight:700;color:var(--ink);">コスト内訳</p>
+        <table class="bd">
+          <tr><td>月額 AI利用料</td><td class="num" id="c1">—</td></tr>
+          <tr><td>初期費用 月次償却</td><td class="num" id="c2">—</td></tr>
+          <tr><td>消耗品費（スネア・クリップ等）<span class="pill">材料</span></td><td class="num" id="c3">—</td></tr>
+          <tr><td>病理組織標本作製コスト<span class="pill">材料</span></td><td class="num" id="c4">—</td></tr>
+          <tr class="total"><td>合計コスト</td><td class="num" id="cT">—</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHART -->
+  <section class="card">
+    <h2 class="card-title"><span class="dot"></span>④ 12ヶ月 累積純利益推移</h2>
+    <svg class="chart" id="chart" viewBox="0 0 720 170" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0E7C6B" stop-opacity=".22"/>
+        <stop offset="1" stop-color="#0E7C6B" stop-opacity="0"/>
+      </linearGradient></defs>
+    </svg>
+  </section>
+
+  <!-- ASSUMPTIONS -->
+  <section class="card">
+    <h2 class="card-title"><span class="dot"></span>⑤ 前提条件（固定パラメータ）</h2>
+    <p class="card-note">元シミュレーターと同じ既定値。<b>月額利用料</b>と<b>初期設置費用</b>のみ今回のご指定値に変更しています。</p>
+    <div class="assume">
+      <div class="row changed"><span>月額 AI利用料 <span class="changed-tag">変更</span></span><span class="v">70,000 円/月</span></div>
+      <div class="row changed"><span>初期設置費用 <span class="changed-tag">変更</span></span><span class="v">0 円</span></div>
+      <div class="row"><span>AI効果による発見率向上</span><span class="v">+3 %pt</span></div>
+      <div class="row"><span>AI加算（1検査あたり）</span><span class="v">60 点</span></div>
+      <div class="row"><span>ポリペクトミー料</span><span class="v">5,000 点</span></div>
+      <div class="row"><span>病理組織標本作製料</span><span class="v">860 点</span></div>
+      <div class="row"><span>病理診断料</span><span class="v">130 点</span></div>
+      <div class="row"><span>消耗品費 / 1切除件</span><span class="v">2,500 円</span></div>
+      <div class="row"><span>病理組織標本作製コスト / 1件</span><span class="v">4,800 円</span></div>
+      <div class="row"><span>初期費用 償却期間</span><span class="v">36 ヶ月</span></div>
+      <div class="row"><span>月間増患数（集患効果）</span><span class="v">0 人/月</span></div>
+      <div class="row"><span>保険点数 → 円 換算</span><span class="v">10 円/点</span></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="window.print()">📄 印刷 / PDF保存</button>
+      <button class="btn ghost" id="csvBtn">📊 CSVダウンロード</button>
+    </div>
+    <div class="secure">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/></svg>
+      入力値・計算はすべてこのブラウザ内で完結し、外部に一切送信されません
+    </div>
+  </section>
+
+  <p class="footnote">
+    <b>計算式（差分ベース）：</b> 月間検査数 = 年間検査数 ÷ 12。AI後ADR = 現ADR + 3%pt（上限100%）。
+    ①AI加算 = AI後ポリープ発見件数 × 60点 × 10円。
+    ②追加ポリペク = ポリープ増加件数 × 5,000点 × 10円。
+    ③病理 = ポリープ増加件数 ×（860+130）点 × 10円。
+    消耗品費・病理コストはポリープ増加件数に連動。
+    年間ROI = 年間純利益 ÷ 年間コスト合計 × 100。投資回収期間 = 初期費用 ÷ 月間純利益（初期費用0円のため即時回収）。<br>
+    ※本ツールは投資判断の目安を示す<b>試算</b>であり、実際の診療報酬・コストは施設・算定要件により異なります。最終的な数値は元の詳細版シミュレーターおよび施設の実数でご確認ください。
+  </p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // ---- 固定パラメータ（元シミュレーターと同一。月額・初期費用のみ変更）----
+  var P = {
+    aiUpliftPt: 3,
+    aiAddOnPoints: 60,
+    polypectomyPoints: 5000,
+    pathSpecimenPoints: 860,
+    pathDiagPoints: 130,
+    monthlyPatientIncrease: 0,
+    monthlyFee: 70000,      // 変更：80,000 → 70,000
+    initialCost: 0,         // 変更：300,000 → 0
+    amortizationMonths: 36,
+    consumablePerPolyp: 2500,
+    pathLabPerPolyp: 4800,
+    yenPerPoint: 10
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var yen = function(n){ return Math.round(n).toLocaleString('ja-JP') + ' 円'; };
+  var num = function(n,d){ d = d||0; return n.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); };
+
+  var last = null;
+
+  function compute(){
+    var exams = Math.max(0, parseFloat($('exams').value) || 0);
+    var adrBefore = Math.min(100, Math.max(0, parseFloat($('adr').value) || 0));
+    var adrAfter = Math.min(100, adrBefore + P.aiUpliftPt);
+
+    var monthlyExams = exams / 12;
+    var polypsAfter = monthlyExams * adrAfter / 100;          // AI後 発見件数/月
+    var polypsInc   = monthlyExams * (adrAfter - adrBefore)/100; // 増加件数/月
+
+    // 収益（月間）
+    var r1 = polypsAfter * P.aiAddOnPoints * P.yenPerPoint;
+    var r2 = polypsInc   * P.polypectomyPoints * P.yenPerPoint;
+    var r3 = polypsInc   * (P.pathSpecimenPoints + P.pathDiagPoints) * P.yenPerPoint;
+    var revenue = r1 + r2 + r3;
+
+    // コスト（月間）
+    var c1 = P.monthlyFee;
+    var c2 = P.initialCost / P.amortizationMonths;
+    var c3 = polypsInc * P.consumablePerPolyp;
+    var c4 = polypsInc * P.pathLabPerPolyp;
+    var cost = c1 + c2 + c3 + c4;
+
+    var net = revenue - cost;
+    var netY = net * 12;
+    var roi = cost > 0 ? (netY / (cost*12)) * 100 : 0;
+    var payback = (P.initialCost > 0 && net > 0) ? P.initialCost / net : 0;
+
+    return {exams:exams,adrBefore:adrBefore,adrAfter:adrAfter,monthlyExams:monthlyExams,
+      polypsAfter:polypsAfter,polypsInc:polypsInc,
+      r1:r1,r2:r2,r3:r3,revenue:revenue,c1:c1,c2:c2,c3:c3,c4:c4,cost:cost,
+      net:net,netY:netY,roi:roi,payback:payback};
+  }
+
+  function render(){
+    var d = compute(); last = d;
+    $('kRev').innerHTML  = num(d.revenue) + '<span class="k-unit">円</span>';
+    $('kCost').innerHTML = num(d.cost) + '<span class="k-unit">円</span>';
+    $('kNet').innerHTML  = num(d.net) + '<span class="k-unit">円</span>';
+    $('kNetY').innerHTML = num(d.netY) + '<span class="k-unit">円</span>';
+    $('kRoi').innerHTML  = num(d.roi,0) + '<span class="k-unit">%/年</span>';
+    $('kPay').innerHTML  = (P.initialCost===0) ? '即時<span class="k-unit">回収</span>' : num(d.payback,1)+'<span class="k-unit">ヶ月</span>';
+    $('kAdr').innerHTML  = num(d.adrAfter,0) + '<span class="k-unit">%</span>';
+    $('kInc').innerHTML  = num(d.polypsInc,1) + '<span class="k-unit">件</span>';
+
+    $('r1').textContent  = yen(d.r1);
+    $('r1s').textContent = num(d.polypsAfter,1) + ' 件';
+    $('r2').textContent  = yen(d.r2);
+    $('r3').textContent  = yen(d.r3);
+    $('r3s').textContent = num(d.polypsInc,1) + ' 件';
+    $('rT').textContent  = yen(d.revenue);
+    $('c1').textContent  = yen(d.c1);
+    $('c2').textContent  = yen(d.c2);
+    $('c3').textContent  = yen(d.c3);
+    $('c4').textContent  = yen(d.c4);
+    $('cT').textContent  = yen(d.cost);
+
+    drawChart(d.net);
+  }
+
+  function drawChart(monthlyNet){
+    var svg = $('chart');
+    // remove previous dynamic nodes
+    Array.prototype.slice.call(svg.querySelectorAll('.dyn')).forEach(function(n){n.remove();});
+    var W=720,H=170,padL=8,padR=8,padT=14,padB=22;
+    var n=12, cum=[], c=0;
+    for(var i=1;i<=n;i++){ c+=monthlyNet; cum.push(c); }
+    var maxV = Math.max.apply(null, cum.concat([1]));
+    var minV = Math.min.apply(null, cum.concat([0]));
+    var span = (maxV-minV)||1;
+    var iw = W-padL-padR, ih=H-padT-padB;
+    var x = function(i){ return padL + (iw)*(i/(n-1)); };
+    var y = function(v){ return padT + ih - ((v-minV)/span)*ih; };
+
+    var ns="http://www.w3.org/2000/svg";
+    // zero axis
+    var zy=y(0);
+    var ax=document.createElementNS(ns,'line');
+    ax.setAttribute('class','axis dyn');ax.setAttribute('x1',padL);ax.setAttribute('x2',W-padR);
+    ax.setAttribute('y1',zy);ax.setAttribute('y2',zy);svg.appendChild(ax);
+
+    var dArea='M '+x(0)+' '+zy;
+    var dLine='M '+x(0)+' '+y(cum[0]);
+    for(var j=0;j<n;j++){ dLine+=' L '+x(j)+' '+y(cum[j]); dArea+=' L '+x(j)+' '+y(cum[j]); }
+    dArea+=' L '+x(n-1)+' '+zy+' Z';
+
+    var area=document.createElementNS(ns,'path');
+    area.setAttribute('class','area dyn');area.setAttribute('d',dArea);svg.appendChild(area);
+    var line=document.createElementNS(ns,'path');
+    line.setAttribute('class','line dyn');line.setAttribute('d',dLine);svg.appendChild(line);
+
+    [0,5,11].forEach(function(j){
+      var t=document.createElementNS(ns,'text');
+      t.setAttribute('class','dyn');t.setAttribute('x',x(j));t.setAttribute('y',H-7);
+      t.setAttribute('text-anchor', j===0?'start':(j===11?'end':'middle'));
+      t.textContent=(j+1)+'ヶ月';svg.appendChild(t);
+      var tv=document.createElementNS(ns,'text');
+      tv.setAttribute('class','dyn');tv.setAttribute('x',x(j));tv.setAttribute('y',Math.max(11,y(cum[j])-6));
+      tv.setAttribute('text-anchor', j===0?'start':(j===11?'end':'middle'));
+      tv.textContent='¥'+Math.round(cum[j]).toLocaleString('ja-JP');svg.appendChild(tv);
+    });
+  }
+
+  // CSV export (client-side only)
+  function downloadCSV(){
+    var d=last||compute();
+    var rows=[
+      ['内視鏡AI ROI 簡易シミュレーション結果',''],
+      ['',''],
+      ['【入力】',''],
+      ['年間大腸内視鏡検査数', d.exams+' 件/年'],
+      ['現在のADR', d.adrBefore+' %'],
+      ['',''],
+      ['【サマリー（月間/差分）】',''],
+      ['月間追加収益', Math.round(d.revenue)],
+      ['月間コスト合計', Math.round(d.cost)],
+      ['月間純利益', Math.round(d.net)],
+      ['年間純利益', Math.round(d.netY)],
+      ['年間ROI(%)', Math.round(d.roi)],
+      ['AI後ADR(%)', d.adrAfter],
+      ['',''],
+      ['【収益内訳（月間）】',''],
+      ['①AI加算収益', Math.round(d.r1)],
+      ['AI後ポリープ発見件数/月', d.polypsAfter.toFixed(1)],
+      ['②追加ポリペクトミー収益', Math.round(d.r2)],
+      ['③病理標本作製料＋病理診断料', Math.round(d.r3)],
+      ['ポリープ増加件数/月', d.polypsInc.toFixed(1)],
+      ['',''],
+      ['【コスト内訳（月間）】',''],
+      ['月額AI利用料', Math.round(d.c1)],
+      ['初期費用月次償却', Math.round(d.c2)],
+      ['消耗品費', Math.round(d.c3)],
+      ['病理組織標本作製コスト', Math.round(d.c4)]
+    ];
+    var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\r\n');
+    var blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download='ROI_simulation.csv';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }
+
+  // wiring (sync number <-> range)
+  function bind(numId,rangeId){
+    var nEl=$(numId), rEl=$(rangeId);
+    nEl.addEventListener('input',function(){ rEl.value=nEl.value; render(); });
+    rEl.addEventListener('input',function(){ nEl.value=rEl.value; render(); });
+  }
+  bind('exams','examsRange');
+  bind('adr','adrRange');
+  $('csvBtn').addEventListener('click',downloadCSV);
+
+  render();
+})();
+</script>
+</body>
+</html>
